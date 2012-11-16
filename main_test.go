@@ -11,9 +11,16 @@ package main
  */
 
 import (
+	"log"
 	"testing"
 )
 
 func TestBrailleprinterclient(t *testing.T) {
 
+}
+
+func TestEmboss(t *testing.T) {
+	log.Println("Enter TestEmboss")
+	Emboss("Hello world")
+	log.Println("exit TestEmboss")
 }
