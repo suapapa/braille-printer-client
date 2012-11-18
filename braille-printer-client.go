@@ -117,8 +117,11 @@ func handlePrintqAdd() {
 	fmt.Printf("OK: printq-add\n")
 }
 
-func handlePrintqList() {
+func handlePrintqList() []PrintqItem{
 	requestUri := options.ServerAddr + PRINTQ_LIST + "?type=" + options.Type
+	/* requestUri += "&key=label_printer_0" */
+	/* requestUri += "&key=example_key" */
+	log.Println(requestUri)
 	response, getError := http.Get(requestUri)
 	if getError != nil {
 		log.Fatalf("Failed to open %s: %s\n", requestUri, getError)
@@ -130,7 +133,7 @@ func handlePrintqList() {
 		log.Fatalf("Failed to conversion: %s\n", conversionError)
 	}
 	if statusCode != 200 {
-		log.Fatalf("Status code is not 200\n")
+		log.Fatalf("Status code is not 200, %d\n", statusCode)
 	}
 
 	body, readError := ioutil.ReadAll(response.Body)
@@ -147,6 +150,8 @@ func handlePrintqList() {
 	for k, v := range printqList {
 		fmt.Printf("[%2d] qid: %2d type: %s\n", k+1, v.Qid, v.Type)
 	}
+
+	return printqList
 }
 
 func handlePrintqItem() {
@@ -189,6 +194,41 @@ func handlePrintqItem() {
 		item.Result)
 }
 
+func handlePrintqItemWithQid(qid int) (string, string) {
+	requestUri := options.ServerAddr + PRINTQ_ITEM + "?qid=" + strconv.Itoa(qid) +
+		"&format=" + options.Format
+	fmt.Println(requestUri, qid)
+	response, getError := http.Get(requestUri)
+	if getError != nil {
+		log.Fatalf("Failed to open %s: %s\n", requestUri, getError)
+	}
+	defer response.Body.Close()
+
+	statusCode, conversionError := parseStatusCode(response.Status)
+	if conversionError != nil {
+		log.Fatalf("Failed to conversion: %s\n", conversionError)
+	}
+	if statusCode != 200 {
+		log.Fatalf("Status code is not 200\n")
+	}
+
+	body, readError := ioutil.ReadAll(response.Body)
+	if readError != nil {
+		log.Fatalf("Failed to read %s\n", readError)
+	}
+
+	var item Item
+	unmarshalError := json.Unmarshal(body, &item)
+	if unmarshalError != nil {
+		log.Fatalf("Failed to unmarshalError %s\n", unmarshalError)
+	}
+
+	fmt.Printf("[qid: %d]\n -from: %s\n -to: %s\n", qid, item.Origin,
+		item.Result)
+
+	return item.Origin, item.Result
+}
+
 func handlePrintqUpdate() {
 	var qid string
 	if len(arguments) > 1 {
@@ -200,6 +240,25 @@ func handlePrintqUpdate() {
 
 	requestUri := options.ServerAddr + PRINTQ_UPDATE + "?qid=" + qid +
 		"&status=" + strconv.Itoa(options.Status)
+	response, postError := http.PostForm(requestUri, url.Values{})
+	if postError != nil {
+		log.Fatalf("Failed to open %s: %s\n", requestUri, postError)
+	}
+	defer response.Body.Close()
+
+	statusCode, conversionError := parseStatusCode(response.Status)
+	if conversionError != nil {
+		log.Fatalf("Failed to conversion: %s\n", conversionError)
+	}
+	if statusCode != 200 {
+		log.Fatalf("Status code is not 200\n")
+	}
+	fmt.Printf("OK: printq-update\n")
+}
+
+func handlePrintqUpdateQid(qid int) {
+	requestUri := options.ServerAddr + PRINTQ_UPDATE + "?qid=" + strconv.Itoa(qid) +
+		"&status=" + strconv.Itoa(1)
 	response, postError := http.PostForm(requestUri, url.Values{})
 	if postError != nil {
 		log.Fatalf("Failed to open %s: %s\n", requestUri, postError)
@@ -233,6 +292,20 @@ func main() {
 		handlePrintqItem()
 	case "printq-update":
 		handlePrintqUpdate()
+	case "emboss-top":
+		pl := handlePrintqList()
+		if len(pl) == 0 {
+			log.Printf("Queue empty!");
+			return
+		}
+
+		p := pl[0]
+		fmt.Println(p)
+		/* sr, br := handlePrintqItemWithQid(string(p.Qid)) */
+		sr, br := handlePrintqItemWithQid(p.Qid)
+		fmt.Println(p.Qid, sr, "->", br)
+		Emboss(br)
+		handlePrintqUpdateQid(p.Qid)
 	default:
 		PrintHelp()
 	}

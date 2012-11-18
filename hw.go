@@ -22,6 +22,8 @@ func Emboss(bs string) {
 		return
 	}
 
+	log.Printf("Ebossing %s (%d)...", bs, rLen)
+
 	conn, err := net.Dial("unixgram", "/tmp/blp_uds")
 	if err != nil {
 		log.Printf("Failed connect server: %s\n", err)
@@ -30,17 +32,20 @@ func Emboss(bs string) {
 	defer conn.Close()
 
 	pktBuf := make([]byte, 4+1+rLen) // header, len, data
+	/* pktBuf := make([]byte, ) */
 	pktBuf[0] = '#'
 	pktBuf[1] = '#'
 	pktBuf[2] = '#'
 	pktBuf[3] = '#'
 	pktBuf[4] = byte(rLen)
 
-	for i, bc := range bs {
+	j := 0;
+	for _, bc := range bs {
 		if bc&0xff00 != 0x2800 {
 			log.Printf("%c is not braille character!\n", bc)
 		}
-		pktBuf[i+5] = byte(bc & 0xff)
+		pktBuf[j+5] = byte(bc & 0xff)
+		j += 1
 	}
 
 	conn.Write(pktBuf)
